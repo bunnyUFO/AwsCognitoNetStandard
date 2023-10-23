@@ -4,11 +4,11 @@ using Amazon.Lambda;
 using Amazon.Lambda.Model;
 using Amazon.CognitoIdentity;
 
-public class CognitoLambdaInvoker
+public class LambdaInvoker
 {
     private AmazonLambdaClient _lamdbaClient;
     
-    public CognitoLambdaInvoker(String region, CognitoAWSCredentials credentials)
+    public LambdaInvoker(String region, CognitoAWSCredentials credentials)
     {
         _lamdbaClient = new AmazonLambdaClient(credentials, Amazon.RegionEndpoint.GetBySystemName(region));
     }

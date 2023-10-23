@@ -12,13 +12,12 @@ string GetPassword()
         {
             break;
         }
-        else if (i.Key == ConsoleKey.Backspace)
+        
+        if (i.Key == ConsoleKey.Backspace)
         {
-            if (pwd.Length > 0)
-            {
-                pwd.Remove(pwd.Length - 1);
-                Console.Write("\b \b");
-            }
+            if (pwd.Length <= 0) continue;
+            pwd.Remove(pwd.Length - 1);
+            Console.Write("\b \b");
         }
         else if (i.KeyChar != '\u0000' ) // KeyChar == '\u0000' if the key pressed does not correspond to a printable character, e.g. F1, Pause-Break, etc
         {
@@ -43,7 +42,7 @@ var cognitoManager = new CognitoAuthenticationManager(
 Console.WriteLine("Already Have user y/n?");
 String response = Console.ReadLine();
 
-bool login = (response == "Y" || response == "y") ? true : false; 
+bool login = response is "Y" or "y"; 
 
 
 Console.WriteLine("\nEnter username:");
@@ -59,20 +58,20 @@ if (login)
     await cognitoManager.Login(username, password);
     Console.WriteLine($"\nsuccessfully logged in user: {cognitoManager.GetUserAuthInfo().UserId}");
 
-    CognitoLambdaInvoker lambdaInvoker = new CognitoLambdaInvoker(region, cognitoManager.GetCredentials());
+    LambdaInvoker lambdaInvoker = new LambdaInvoker(region, cognitoManager.GetCredentials());
     
     // Update function payload as needed here
-    var functionPaylaod = $"{{\"user_id\": \"{cognitoManager.GetUserAuthInfo().UserId}\", \"username\": \"{username}\", \"gold\": 10, \"reputation\": 0, \"cards\": {{\"slash\": 5, \"block\": 5 }} }}";
-    Console.WriteLine($"\ninvoking GetUser lambda with payload #{functionPaylaod}");
+    var functionPayload = $"{{\"user_id\": \"{cognitoManager.GetUserAuthInfo().UserId}\", \"username\": \"{username}\", \"gold\": 10, \"reputation\": 0, \"cards\": {{\"slash\": 5, \"block\": 5 }} }}";
+    Console.WriteLine($"\ninvoking GetUser lambda with payload #{functionPayload}");
     
-    var responsePayload = await lambdaInvoker.InvokeLambda("deck-consultant-create-user", functionPaylaod);
+    var responsePayload = await lambdaInvoker.InvokeLambda("deck-consultant-create-user", functionPayload);
     Console.WriteLine($"lamdba responded with #{responsePayload}");
     
     // Update function payload or remove second function call
-    functionPaylaod = $"{{\"user_id\": \"{cognitoManager.GetUserAuthInfo().UserId}\"}}";
-    Console.WriteLine($"\ninvoking GetUser lambda with payload #{functionPaylaod}");
+    functionPayload = $"{{\"user_id\": \"{cognitoManager.GetUserAuthInfo().UserId}\"}}";
+    Console.WriteLine($"\ninvoking GetUser lambda with payload #{functionPayload}");
     
-    responsePayload = await lambdaInvoker.InvokeLambda("deck-consultant-get-user", functionPaylaod);
+    responsePayload = await lambdaInvoker.InvokeLambda("deck-consultant-get-user", functionPayload);
     Console.WriteLine($"lamdba responded with #{responsePayload}");
     
     cognitoManager.SignOut();
