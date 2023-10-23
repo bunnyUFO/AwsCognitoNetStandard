@@ -1,8 +1,8 @@
-﻿// See https://aka.ms/new-console-template for more information
-using AwsCognitoNetstandard;
-using System.Security;
+﻿// Executable cli class to test cognito user creation, login, and lambda invoke with user credentials
 
-String GetPassword()
+using AwsCognitoNetstandard;
+
+string GetPassword()
 {
     String pwd = "";
     while (true)
@@ -29,8 +29,12 @@ String GetPassword()
     return pwd;
 }
 
+// Update region as needed
+string region = "us-west-2";
+
+// Update cognito configuration as needed
 var cognitoManager = new CognitoAuthenticationManager(
-    "us-west-2",
+    region,
     "<YOUR USER POOL ID HERE>",
     "<YOUR IDENTITY POOL ID HERE>",
     "<YOUR APP CLIENT ID HERE>"
@@ -54,12 +58,29 @@ if (login)
 {
     await cognitoManager.Login(username, password);
     Console.WriteLine($"\nsuccessfully logged in user: {cognitoManager.GetUserAuthInfo().UserId}");
+
+    CognitoLambdaInvoker lambdaInvoker = new CognitoLambdaInvoker(region, cognitoManager.GetCredentials());
+    
+    // Update function payload as needed here
+    var functionPaylaod = $"{{\"user_id\": \"{cognitoManager.GetUserAuthInfo().UserId}\", \"username\": \"{username}\", \"gold\": 10, \"reputation\": 0, \"cards\": {{\"slash\": 5, \"block\": 5 }} }}";
+    Console.WriteLine($"\ninvoking GetUser lambda with payload #{functionPaylaod}");
+    
+    var responsePayload = await lambdaInvoker.InvokeLambda("deck-consultant-create-user", functionPaylaod);
+    Console.WriteLine($"lamdba responded with #{responsePayload}");
+    
+    // Update function payload or remove second function call
+    functionPaylaod = $"{{\"user_id\": \"{cognitoManager.GetUserAuthInfo().UserId}\"}}";
+    Console.WriteLine($"\ninvoking GetUser lambda with payload #{functionPaylaod}");
+    
+    responsePayload = await lambdaInvoker.InvokeLambda("deck-consultant-get-user", functionPaylaod);
+    Console.WriteLine($"lamdba responded with #{responsePayload}");
+    
+    cognitoManager.SignOut();
 }
 else
 {
     Console.WriteLine("\nEnter email:");
     String email = Console.ReadLine();
-    
     await cognitoManager.Signup(username, email, password);
     Console.WriteLine($"\nSuccessfully signed up user: {cognitoManager.GetUserAuthInfo().UserId}");
     Console.WriteLine("Check email to verify before trying to log in");

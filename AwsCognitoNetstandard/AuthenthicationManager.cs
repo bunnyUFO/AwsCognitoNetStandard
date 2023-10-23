@@ -20,8 +20,12 @@ public class CognitoAuthenticationManager
     private string _userid = "";
     private CognitoUser _user;
 
-    private UserInfo _userInfo = new UserInfo( "", "","","");
+    private AuthInfo _authInfo = new ( "", "","","", "");
 
+    /// <summary>
+    /// Class <c>CognitoAuthenticationManager</c> is initialized with cognito settings.
+    /// Has methods to sign up, login, and get credentials, and get authentication info for a cognito user.
+    /// </summary>
     public CognitoAuthenticationManager(String region, String userPoolId, String identityPool, String appClientID)
     {
         _identityPool = identityPool;
@@ -31,6 +35,9 @@ public class CognitoAuthenticationManager
         _provider = new AmazonCognitoIdentityProviderClient(new Amazon.Runtime.AnonymousAWSCredentials(), _region);
     }
 
+    /// <summary>
+    /// Method <c>Signup</c> signups up a user with username email and password.
+    /// </summary>
     public async Task<bool> Signup(string username, string email, string password)
     {
         SignUpRequest signUpRequest = new SignUpRequest()
@@ -52,7 +59,7 @@ public class CognitoAuthenticationManager
         try
         {
             SignUpResponse signupResponse = await _provider.SignUpAsync(signUpRequest);
-            _userInfo = new UserInfo( "", "","",signupResponse.UserSub);
+            _authInfo = new AuthInfo( "", "","",signupResponse.UserSub, username);
             Console.Write("Sign up successful");
             return true;
         }
@@ -63,6 +70,11 @@ public class CognitoAuthenticationManager
         }
     }
 
+    /// <summary>
+    /// Method <c>Login</c> login with username and password.
+    /// saves authentication info and aws credentials.
+    /// User will need to be verified before login will work.
+    /// </summary>
     public async Task<bool> Login(string username, string password)
     {
         CognitoUserPool userPool = new CognitoUserPool(_userPoolId, _appClientID, _provider);
@@ -78,11 +90,12 @@ public class CognitoAuthenticationManager
             AuthFlowResponse authFlowResponse = await user.StartWithSrpAuthAsync(authRequest).ConfigureAwait(false);
 
             _userid = await GetUserIdFromProvider(authFlowResponse.AuthenticationResult.AccessToken);
-            _userInfo = new UserInfo(
+            _authInfo = new AuthInfo(
                 authFlowResponse.AuthenticationResult.IdToken,
                 authFlowResponse.AuthenticationResult.AccessToken,
                 authFlowResponse.AuthenticationResult.RefreshToken,
-                _userid
+                _userid,
+                username
             );
 
             // This how you get credentials to use for accessing other services.
@@ -101,14 +114,35 @@ public class CognitoAuthenticationManager
         }
     }
 
-    public UserInfo GetUserAuthInfo()
+    /// <summary>
+    /// Method <c>GetUserAuthInfo</c> returns struct of type AuthInfo with session, access, and refresh tokens.
+    /// </summary>
+    public AuthInfo GetUserAuthInfo()
     {
-        return _userInfo;
+        return _authInfo;
     }
     
-    public CognitoUser GetUser()
+    
+    // access to the user's authenticated credentials to be used to call other AWS APIs
+    
+    
+    /// <summary>
+    /// Method <c>GetCredentials</c> returns saved aws credentials generated during login.
+    /// Credentials will be null prior to login (or if login fails)
+    /// </summary>
+    public CognitoAWSCredentials GetCredentials()
     {
-        return _user;
+        return _cognitoAwsCredentials;
+    }
+
+    /// <summary>
+    /// Method <c>SignOut</c> will sign out user form ALL devices. Other sessions in website or apps would also be logged
+    /// out. Have not found a workaround to just log out a single session yet. 
+    /// </summary>
+    public async void SignOut()
+    {
+        await _user.GlobalSignOutAsync();
+        Console.Write("user logged out.");
     }
 
     private async Task<string> GetUserIdFromProvider(string accessToken)
@@ -135,20 +169,5 @@ public class CognitoAuthenticationManager
         }
 
         return subId;
-    }
-
-    // Limitation note: so this GlobalSignOutAsync signs out the user from ALL devices, and not just the game.
-    // So if you had other sessions for your website or app, those would also be killed.  
-    // Currently, I don't think there is native support for granular session invalidation without some work arounds.
-    public async void SignOut()
-    {
-        await _user.GlobalSignOutAsync();
-        Console.Write("user logged out.");
-    }
-
-    // access to the user's authenticated credentials to be used to call other AWS APIs
-    public CognitoAWSCredentials GetCredentials()
-    {
-        return _cognitoAwsCredentials;
     }
 }
